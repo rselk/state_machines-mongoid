@@ -352,9 +352,8 @@ module StateMachines
     #         events:
     #           park: 'estacionarse'
     module Mongoid
-      include Base
-      include ActiveModel
-
+      include StateMachines::Integrations::Base
+      extend ClassMethods
       # The default options to use for state machines using this integration
       @defaults = { action: :save }
 
@@ -364,7 +363,44 @@ module StateMachines
         %w(Mongoid::Document)
       end
 
+            # Adds a validation error to the given object 
+      def invalidate(object, attribute, message, values = [])
+        if supports_validations?
+          attribute = self.attribute(attribute)
+          options = values.inject({}) do |h, (key, value)|
+            h[key] = value
+            h
+          end
+
+          default_options = default_error_message_options(object, attribute, message)
+          object.errors.add(attribute, message, options.merge(default_options))
+        end
+      end
+
+
+      # Describes the current validation errors on the given object.  If none
+      # are specific, then the default error is interpeted as a "halt".
+      def errors_for(object)
+        object.errors.empty? ? 'Transition halted' : object.errors.full_messages * ', '
+      end
+
+      # Resets any errors previously added when invalidating the given object
+      def reset(object)
+        object.errors.clear if supports_validations?
+      end
+
+      # Runs state events around the object's validation process
+      def around_validation(object)
+        object.class.state_machines.transitions(object, action, :after => false).perform { yield }
+      end
+
+
+
       protected
+
+      def self.locale_path
+        "#{File.dirname(__FILE__)}/mongoid/locale.rb"
+      end
 
       # Only runs validations on the action if using <tt>:save</tt>
       def runs_validations_on_action?
