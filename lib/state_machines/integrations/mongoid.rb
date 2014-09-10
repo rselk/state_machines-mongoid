@@ -353,6 +353,8 @@ module StateMachines
     #           park: 'estacionarse'
     module Mongoid
       include StateMachines::Integrations::Base
+      include ActiveModel
+      
       extend ClassMethods
       # The default options to use for state machines using this integration
       @defaults = { action: :save }
