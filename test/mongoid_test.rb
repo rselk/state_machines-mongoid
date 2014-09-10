@@ -85,7 +85,7 @@ module MongoidTest
     end
 
     def test_should_have_a_locale_path
-      assert_not_nil StateMachines::Integrations::Mongoid.locale_path
+      refute_nil StateMachines::Integrations::Mongoid.locale_path
     end
   end
 
@@ -97,7 +97,7 @@ module MongoidTest
 
     def test_should_define_field_with_string_type
       field = @model.fields['status']
-      assert_not_nil field
+      refute_nil field
       assert_equal String, field.type
     end
   end
@@ -112,7 +112,7 @@ module MongoidTest
 
     def test_should_not_redefine_field
       field = @model.fields['status']
-      assert_not_nil field
+      refute_nil field
       assert_equal Integer, field.type
     end
   end
@@ -579,7 +579,7 @@ module MongoidTest
     end
 
     def test_should_raise_exception_for_predicate_if_invalid_state_specified
-      assert_raise(IndexError) { @record.state?(:invalid) }
+      assert_raises(IndexError) { @record.state?(:invalid) }
     end
   end
 
@@ -599,7 +599,7 @@ module MongoidTest
     end
 
     def test_should_define_a_new_key_for_the_attribute
-      assert_not_nil @model.fields['status']
+     refute_nil @model.fields['status']
     end
 
     def test_should_define_a_reader_attribute_for_the_attribute
@@ -641,7 +641,7 @@ module MongoidTest
     end
 
     def test_should_raise_exception_for_predicate_if_invalid_state_specified
-      assert_raise(IndexError) { @record.status?(:invalid) }
+      assert_raises(IndexError) { @record.status?(:invalid) }
     end
 
     def test_should_set_initial_state_on_created_object
@@ -702,7 +702,7 @@ module MongoidTest
     end
 
     def test_should_not_delegate_attribute_predicate_with_different_attribute
-      assert_raise(ArgumentError) { @record.public_state? }
+      assert_raises(ArgumentError) { @record.public_state? }
     end
 
     def teardown
@@ -793,7 +793,7 @@ module MongoidTest
     end
 
     def test_should_update_record
-      assert_not_equal @timestamp, @record.updated_at
+      refute_equal @timestamp, @record.updated_at
     end
   end
 
@@ -1684,12 +1684,12 @@ module MongoidTest
 
     def test_should_fail_if_event_is_invalid
       @record.state_event = 'invalid'
-      assert_raise(Mongoid::Errors::Validations) { @record.save! }
+      assert_raises(Mongoid::Errors::Validations) { @record.save! }
     end
 
     def test_should_fail_if_event_has_no_transition
       @record.state = 'idling'
-      assert_raise(Mongoid::Errors::Validations) { @record.save! }
+      assert_raises(Mongoid::Errors::Validations) { @record.save! }
     end
 
     def test_should_be_successful_if_event_has_transition
