@@ -367,6 +367,8 @@ module StateMachines
 
             # Adds a validation error to the given object 
       def invalidate(object, attribute, message, values = [])
+
+        if supports_validations?
           attribute = self.attribute(attribute)
           options = values.inject({}) do |h, (key, value)|
             h[key] = value
@@ -375,7 +377,16 @@ module StateMachines
 
           default_options = default_error_message_options(object, attribute, message)
           object.errors.add(attribute, message, options.merge(default_options))
+        end
+
       end
+
+      # Whether validations are supported in the integration.  Only true if
+      # the ActiveModel feature is enabled on the owner class.
+      def supports_validations?
+        defined?(::ActiveModel::Validations) && owner_class <= ::ActiveModel::Validations
+      end
+
 
 
       # Describes the current validation errors on the given object.  If none
@@ -448,8 +459,12 @@ module StateMachines
 
       # Skips defining reader/writer methods since this is done automatically
       def define_state_accessor
-        owner_class.field(attribute, type: String) unless attribute_field
-        super
+        name = self.name
+
+        owner_class.validates_each(attribute) do |object, attr, value|
+          machine = object.class.state_machine(name)
+          machine.invalidate(object, :state, :invalid) unless machine.states.match(object)
+        end if supports_validations?
       end
 
       # Uses around callbacks to run state events if using the :save hook
