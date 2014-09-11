@@ -367,7 +367,6 @@ module StateMachines
 
             # Adds a validation error to the given object 
       def invalidate(object, attribute, message, values = [])
-        if supports_validations?
           attribute = self.attribute(attribute)
           options = values.inject({}) do |h, (key, value)|
             h[key] = value
@@ -376,7 +375,6 @@ module StateMachines
 
           default_options = default_error_message_options(object, attribute, message)
           object.errors.add(attribute, message, options.merge(default_options))
-        end
       end
 
 
@@ -399,6 +397,12 @@ module StateMachines
 
 
       protected
+
+      # The default options to use when generating messages for validation
+      # errors
+      def default_error_message_options(object, attribute, message)
+        {:message => @messages[message]}
+      end
 
       def self.locale_path
         "#{File.dirname(__FILE__)}/mongoid/locale.rb"
