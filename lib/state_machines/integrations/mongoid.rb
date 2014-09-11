@@ -510,6 +510,55 @@ module StateMachines
       def define_scope(_name, scope)
         lambda { |model, values| model.criteria.where(scope.call(values)) }
       end
+
+
+      def translate(klass, key, value)
+        ancestors = ancestors_for(klass)
+        group = key.to_s.pluralize
+        value = value ? value.to_s : 'nil'
+
+        # Generate all possible translation keys
+        translations = ancestors.map { |ancestor| :"#{ancestor.model_name.to_s.underscore}.#{name}.#{group}.#{value}" }
+        translations.concat(ancestors.map { |ancestor| :"#{ancestor.model_name.to_s.underscore}.#{group}.#{value}" })
+        translations.concat([:"#{name}.#{group}.#{value}", :"#{group}.#{value}", value.humanize.downcase])
+        I18n.translate(translations.shift, :default => translations, :scope => [i18n_scope(klass), :state_machines])
+      end
+
+
+      # Loads any locale files needed for translating validation errors
+      def load_locale
+        I18n.load_path.unshift(locale_path) unless I18n.load_path.include?(locale_path)
+      end
+
+      def locale_path
+        "#{File.dirname(__FILE__)}/mongoid/locale.rb"
+      end
+
+      # Determines the base scope to use when looking up translations
+      def i18n_scope(klass)
+        klass.i18n_scope
+      end
+
+      # Build a list of ancestors for the given class to use when
+      # determining which localization key to use for a particular string.
+      def ancestors_for(klass)
+        klass.lookup_ancestors
+      end
+
+      # Configures new states with the built-in humanize scheme
+      def add_states(new_states)
+        super.each do |new_state|
+          new_state.human_name = lambda { |state, klass| translate(klass, :state, state.name) }
+        end
+      end
+
+      # Configures new event with the built-in humanize scheme
+      def add_events(new_events)
+        super.each do |new_event|
+          new_event.human_name = lambda { |event, klass| translate(klass, :event, event.name) }
+        end
+      end
+
     end
   end
 end

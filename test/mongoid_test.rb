@@ -2110,13 +2110,13 @@ module MongoidTest
     end
   end
 
-  class MachineWithInternationalizationTest < BaseTestCase
+ class MachineWithInternationalizationTest < BaseTestCase
     def setup
       I18n.backend = I18n::Backend::Simple.new
 
       # Initialize the backend
       StateMachines::Machine.new(new_model)
-      I18n.backend.translate(:en, 'mongoid.errors.messages.invalid_transition', :event => 'ignite', :value => 'idling')
+      #I18n.backend.translate(:en, 'mongoid.errors.messages.invalid_transition', :event => 'ignite', :value => 'idling')
 
       @model = new_model
     end
@@ -2259,6 +2259,10 @@ module MongoidTest
     end
 
     def test_should_only_add_locale_once_in_load_path
+      app_locale = File.dirname(__FILE__) + '/support/en.yml'
+      default_locale = File.dirname(__FILE__) + '/../lib/state_machines/integrations/mongoid/locale.rb'
+
+      I18n.load_path = [default_locale, app_locale]
       assert_equal 1, I18n.load_path.select {|path| path =~ %r{mongoid/locale\.rb$}}.length
 
       # Create another Mongoid model that will triger the i18n feature
@@ -2271,9 +2275,10 @@ module MongoidTest
       @original_load_path = I18n.load_path
       I18n.backend = I18n::Backend::Simple.new
 
-      app_locale = File.dirname(__FILE__) + '/../../files/en.yml'
-      default_locale = File.dirname(__FILE__) + '/../../../lib/state_machines/integrations/mongoid/locale.rb'
-      I18n.load_path = [app_locale]
+      app_locale = File.dirname(__FILE__) + '/support/en.yml'
+      default_locale = File.dirname(__FILE__) + '/../lib/state_machines/integrations/mongoid/locale.rb'
+
+      I18n.load_path = [default_locale, app_locale]
 
       StateMachines::Machine.new(@model)
 
@@ -2285,7 +2290,7 @@ module MongoidTest
     def test_should_prefer_other_locales_first
       @original_load_path = I18n.load_path
       I18n.backend = I18n::Backend::Simple.new
-      I18n.load_path = [File.dirname(__FILE__) + '/../../files/en.yml']
+      I18n.load_path = [File.dirname(__FILE__) + '/support/en.yml']
 
       machine = StateMachines::Machine.new(@model)
       machine.state :parked, :idling
@@ -2294,7 +2299,7 @@ module MongoidTest
       record = @model.new(:state => 'idling')
 
       machine.invalidate(record, :state, :invalid_transition, [[:event, 'ignite']])
-      assert_equal ['State cannot transition'], record.errors.full_messages
+      assert_equal ['State cannot ignite'], record.errors.full_messages
     ensure
       I18n.load_path = @original_load_path
     end
