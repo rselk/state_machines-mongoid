@@ -352,7 +352,7 @@ module StateMachines
     #         events:
     #           park: 'estacionarse'
     module Mongoid
-      include StateMachines::Integrations::Base
+      include Base
       include ActiveModel
       
       extend ClassMethods
