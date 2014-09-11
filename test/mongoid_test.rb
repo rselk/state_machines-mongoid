@@ -32,6 +32,8 @@ module MongoidTest
 
         model.class_eval do
           include Mongoid::Document
+          include Mongoid::Attributes::Dynamic
+
           store_in collection: table_name
 
           field :state, :type => String
