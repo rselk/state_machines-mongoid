@@ -65,198 +65,110 @@ module MongoidTest
       end
 =end
   end
-
-class MachineWithInternationalizationTest < BaseTestCase
+ class MachineWithEventAttributesOnValidationTest < BaseTestCase
     def setup
-      I18n.backend = I18n::Backend::Simple.new
-
-      # Initialize the backend
-      StateMachines::Machine.new(new_model)
-      #I18n.backend.translate(:en, 'mongoid.errors.messages.invalid_transition', :event => 'ignite', :value => 'idling')
-
       @model = new_model
+      @machine = StateMachines::Machine.new(@model)
+      @machine.event :ignite do
+        transition :parked => :idling
+      end
+
+      @record = @model.new
+      @record.state = 'parked'
+      @record.state_event = 'ignite'
     end
 
-    def test_should_use_defaults
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:errors => {:messages => {:invalid_transition => 'cannot %{event}'}}}
-      })
-
-      machine = StateMachines::Machine.new(@model)
-      machine.state :parked, :idling
-      machine.event :ignite
-
-      record = @model.new(:state => 'idling')
-
-      machine.invalidate(record, :state, :invalid_transition, [[:event, 'ignite']])
-      assert_equal ['State cannot ignite'], record.errors.full_messages
+    def test_should_fail_if_event_is_invalid
+      @record.state_event = 'invalid'
+      assert_raises(IndexError) { @record.state?(:invalid)}
     end
 
-    def test_should_allow_customized_error_key
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:errors => {:messages => {:bad_transition => 'cannot %{event}'}}}
-      })
-
-      machine = StateMachines::Machine.new(@model, :messages => {:invalid_transition => :bad_transition})
-      machine.state :parked, :idling
-
-      record = @model.new(:state => 'idling')
-
-      machine.invalidate(record, :state, :invalid_transition, [[:event, 'ignite']])
-      assert_equal ['State cannot ignite'], record.errors.full_messages
+    def test_should_fail_if_event_has_no_transition
+      @record.state = 'idling'
+      assert_raises(IndexError) { @record.state?(:invalid)}
     end
 
-    def test_should_allow_customized_error_string
-      machine = StateMachines::Machine.new(@model, :messages => {:invalid_transition => 'cannot %{event}'})
-      machine.state :parked, :idling
-
-      record = @model.new(:state => 'idling')
-
-      machine.invalidate(record, :state, :invalid_transition, [[:event, 'ignite']])
-      assert_equal ['State cannot ignite'], record.errors.full_messages
+    def test_should_be_successful_if_event_has_transition
+      assert @record.valid?
     end
 
-    def test_should_allow_customized_state_key_scoped_to_class_and_machine
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:'mongoid_test/foo' => {:state => {:states => {:parked => 'shutdown'}}}}}
-      })
+    def test_should_run_before_callbacks
+      ran_callback = false
+      @machine.before_transition { ran_callback = true }
 
-      machine = StateMachines::Machine.new(@model)
-      machine.state :parked
-
-      assert_equal 'shutdown', machine.state(:parked).human_name
+      assert @record.valid?
+      assert ran_callback
     end
 
-    def test_should_allow_customized_state_key_scoped_to_class
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:'mongoid_test/foo' => {:states => {:parked => 'shutdown'}}}}
-      })
+    def test_should_run_around_callbacks_before_yield
+      ran_callback = false
+      @machine.around_transition do |block| 
+        ran_callback = true; 
+        block.call 
+      end
 
-      machine = StateMachines::Machine.new(@model)
-      machine.state :parked
-
-      assert_equal 'shutdown', machine.state(:parked).human_name
+      @record.save!
+      assert ran_callback
     end
 
-    def test_should_allow_customized_state_key_scoped_to_machine
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:state => {:states => {:parked => 'shutdown'}}}}
-      })
 
-      machine = StateMachines::Machine.new(@model)
-      machine.state :parked
+    def test_should_not_run_after_callbacks
+      ran_callback = false
+      @machine.after_transition { ran_callback = true }
 
-      assert_equal 'shutdown', machine.state(:parked).human_name
+      @record.valid?
+      assert !ran_callback
     end
 
-    def test_should_allow_customized_state_key_unscoped
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:states => {:parked => 'shutdown'}}}
-      })
+    def test_should_not_run_after_callbacks_with_failures_disabled_if_validation_fails
+      @model.class_eval do
+        attr_accessor :seatbelt
+        validates_presence_of :seatbelt
+      end
 
-      machine = StateMachines::Machine.new(@model)
-      machine.state :parked
+      ran_callback = false
+      @machine.after_transition { ran_callback = true }
 
-      assert_equal 'shutdown', machine.state(:parked).human_name
+      @record.valid?
+      assert !ran_callback
     end
 
-    def test_should_support_nil_state_key
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:states => {:nil => 'empty'}}}
-      })
+    def test_should_not_run_around_callbacks_after_yield
+      ran_callback = false
+      @machine.around_transition {|block| block.call; ran_callback = true }
 
-      machine = StateMachines::Machine.new(@model)
-
-      assert_equal 'empty', machine.state(nil).human_name
+      begin
+        @record.valid?
+      rescue ArgumentError
+        raise if StateMachines::Transition.pause_supported?
+      end
+      assert !ran_callback
     end
 
-    def test_should_allow_customized_event_key_scoped_to_class_and_machine
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:'mongoid_test/foo' => {:state => {:events => {:park => 'stop'}}}}}
-      })
+    def test_should_not_run_around_callbacks_after_yield_with_failures_disabled_if_validation_fails
+      @model.class_eval do
+        attr_accessor :seatbelt
+        validates_presence_of :seatbelt
+      end
 
-      machine = StateMachines::Machine.new(@model)
-      machine.event :park
+      ran_callback = false
+      @machine.around_transition {|block| block.call; ran_callback = true }
 
-      assert_equal 'stop', machine.event(:park).human_name
+      @record.valid?
+      assert !ran_callback
     end
 
-    def test_should_allow_customized_event_key_scoped_to_class
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:'mongoid_test/foo' => {:events => {:park => 'stop'}}}}
-      })
+    def test_should_run_failure_callbacks_if_validation_fails
+      @model.class_eval do
+        attr_accessor :seatbelt
+        validates_presence_of :seatbelt
+      end
 
-      machine = StateMachines::Machine.new(@model)
-      machine.event :park
+      ran_callback = false
+      @machine.after_failure { ran_callback = true }
 
-      assert_equal 'stop', machine.event(:park).human_name
-    end
-
-    def test_should_allow_customized_event_key_scoped_to_machine
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:state => {:events => {:park => 'stop'}}}}
-      })
-
-      machine = StateMachines::Machine.new(@model)
-      machine.event :park
-
-      assert_equal 'stop', machine.event(:park).human_name
-    end
-
-    def test_should_allow_customized_event_key_unscoped
-      I18n.backend.store_translations(:en, {
-        :mongoid => {:state_machines => {:events => {:park => 'stop'}}}
-      })
-
-      machine = StateMachines::Machine.new(@model)
-      machine.event :park
-
-      assert_equal 'stop', machine.event(:park).human_name
-    end
-
-    def test_should_only_add_locale_once_in_load_path
-      app_locale = File.dirname(__FILE__) + '/support/en.yml'
-      default_locale = File.dirname(__FILE__) + '/../lib/state_machines/integrations/mongoid/locale.rb'
-
-      I18n.load_path = [default_locale, app_locale]
-      assert_equal 1, I18n.load_path.select {|path| path =~ %r{mongoid/locale\.rb$}}.length
-
-      # Create another Mongoid model that will triger the i18n feature
-      new_model
-
-      assert_equal 1, I18n.load_path.select {|path| path =~ %r{mongoid/locale\.rb$}}.length
-    end
-
-    def test_should_add_locale_to_beginning_of_load_path
-      @original_load_path = I18n.load_path
-      I18n.backend = I18n::Backend::Simple.new
-
-      app_locale = File.dirname(__FILE__) + '/support/en.yml'
-      default_locale = File.dirname(__FILE__) + '/../lib/state_machines/integrations/mongoid/locale.rb'
-      I18n.load_path = [app_locale]
-
-      StateMachines::Machine.new(@model)
-
-      assert_equal [default_locale, app_locale].map {|path| File.expand_path(path)}, I18n.load_path.map {|path| File.expand_path(path)}
-    ensure
-      I18n.load_path = @original_load_path
-    end
-
-    def test_should_prefer_other_locales_first
-      @original_load_path = I18n.load_path
-      I18n.backend = I18n::Backend::Simple.new
-      I18n.load_path = [File.dirname(__FILE__) + '/support/en.yml']
-
-      machine = StateMachines::Machine.new(@model)
-      machine.state :parked, :idling
-      machine.event :ignite
-
-      record = @model.new(:state => 'idling')
-
-      machine.invalidate(record, :state, :invalid_transition, [[:event, 'ignite']])
-      assert_equal ['State cannot ignite'], record.errors.full_messages
-    ensure
-      I18n.load_path = @original_load_path
+      @record.valid?
+      assert ran_callback
     end
   end
 end
