@@ -354,6 +354,7 @@ module StateMachines
     module Mongoid
       include Base
       include ActiveModel
+
       
       extend ClassMethods
       # The default options to use for state machines using this integration
@@ -379,6 +380,17 @@ module StateMachines
           object.errors.add(attribute, message, options.merge(default_options))
         end
 
+      end
+
+      # Initializes class-level extensions and defaults for this machine
+      def after_initialize
+        super()
+        load_locale
+      end
+
+      # Loads any locale files needed for translating validation errors
+      def load_locale
+        I18n.load_path.unshift(locale_path) unless I18n.load_path.include?(locale_path)
       end
 
       # Whether validations are supported in the integration.  Only true if

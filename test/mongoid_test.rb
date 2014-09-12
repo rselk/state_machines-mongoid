@@ -1258,7 +1258,6 @@ module MongoidTest
     end
 
     def test_should_invalidate_using_errors
-      I18n.backend = I18n::Backend::Simple.new if Object.const_defined?(:ActiveModel)
       @record.state = 'parked'
 
       @machine.invalidate(@record, :state, :invalid_transition, [[:event, 'park']])
@@ -2106,7 +2105,7 @@ module MongoidTest
       @machine.state :idling
 
       @model.class_eval do
-        default_scope with_state(:parked, :idling)
+        default_scope -> { with_state(:parked, :idling) }
       end
     end
 
@@ -2116,7 +2115,7 @@ module MongoidTest
     end
   end
 
- class MachineWithInternationalizationTest < BaseTestCase
+class MachineWithInternationalizationTest < BaseTestCase
     def setup
       I18n.backend = I18n::Backend::Simple.new
 
@@ -2283,8 +2282,7 @@ module MongoidTest
 
       app_locale = File.dirname(__FILE__) + '/support/en.yml'
       default_locale = File.dirname(__FILE__) + '/../lib/state_machines/integrations/mongoid/locale.rb'
-
-      I18n.load_path = [default_locale, app_locale]
+      I18n.load_path = [app_locale]
 
       StateMachines::Machine.new(@model)
 
